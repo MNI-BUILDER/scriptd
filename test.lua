@@ -1,6 +1,3 @@
--- FINAL DEFENSIVE AUTO-SCROLL + SEASONPASS STORE CONTENT FIX
--- Put in StarterPlayerScripts (LocalScript)
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
