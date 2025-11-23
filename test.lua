@@ -3,58 +3,47 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- CONFIG
 local UI_NAMES = { "Gear_Shop", "Seed_Shop", "SeasonPassUI", "PetShop_UI" }
 local UI_PADDING = 20
-local SCROLL_SPEED = 0.12      -- lower = slower
+local SCROLL_SPEED = 0.12
 local UI_SCALE = 0.75
 local SCROLL_PAUSE_TIME = 1.2
 local RESCAN_INTERVAL = 1
-local DEBUG = false            -- set true to show detailed debug & errors
-
--- Make SeasonPass bigger by this multiplier (1.0 = same size)
+local DEBUG = false
 local SEASON_UI_SIZE_MULTIPLIER = 1.18
 
 local function dbg(...)
-	if DEBUG then
-		print("[AutoScroll DEBUG]", ...)
-	end
+	if DEBUG then print("[AutoScroll DEBUG]", ...) end
 end
 
-local function safePcall(fn, ctx)
+local function safe(fn, ctx)
 	local ok, err = pcall(fn)
 	if not ok then
 		warn(("AutoScroll ERROR (%s): %s"):format(ctx or "unknown", tostring(err)))
-		if DEBUG then
-			print(debug.traceback())
-		end
+		if DEBUG then print(debug.traceback()) end
 	end
 	return ok, err
 end
 
--- ---------- find & arrange UIs ----------
 local foundUIs = {}
 
 local function tryAddUI(ui)
-	safePcall(function()
+	safe(function()
 		for _, name in ipairs(UI_NAMES) do
-			if ui and ui.Name == name then
-				if not table.find(foundUIs, ui) then
-					table.insert(foundUIs, ui)
-					ui.Enabled = true
-					if ui:IsA("ScreenGui") then
-						ui.ResetOnSpawn = false
-						ui.IgnoreGuiInset = false
-					end
-					dbg("Added UI:", ui.Name)
+			if ui and ui.Name == name and not table.find(foundUIs, ui) then
+				table.insert(foundUIs, ui)
+				ui.Enabled = true
+				if ui:IsA("ScreenGui") then
+					ui.ResetOnSpawn = false
+					ui.IgnoreGuiInset = false
 				end
+				dbg("Added UI:", ui.Name)
 			end
 		end
 	end, "tryAddUI")
 end
 
--- initial find
-safePcall(function()
+safe(function()
 	for _, name in ipairs(UI_NAMES) do
 		local ui = playerGui:FindFirstChild(name)
 		if ui then tryAddUI(ui) end
@@ -62,59 +51,53 @@ safePcall(function()
 end, "initial UI find")
 
 playerGui.ChildAdded:Connect(function(child)
-	safePcall(function() tryAddUI(child) end, "ChildAdded tryAddUI")
+	safe(function() tryAddUI(child) end, "ChildAdded tryAddUI")
 end)
 
-local cornerPositions = {
-	{anchor = Vector2.new(0,0), position = UDim2.new(0, UI_PADDING, 0, UI_PADDING)},
-	{anchor = Vector2.new(1,0), position = UDim2.new(1, -UI_PADDING, 0, UI_PADDING)},
-	{anchor = Vector2.new(0,1), position = UDim2.new(0, UI_PADDING, 1, -UI_PADDING)},
-	{anchor = Vector2.new(1,1), position = UDim2.new(1, -UI_PADDING, 1, -UI_PADDING)},
+local corners = {
+	{anchor = Vector2.new(0,0), pos = UDim2.new(0, UI_PADDING, 0, UI_PADDING)},
+	{anchor = Vector2.new(1,0), pos = UDim2.new(1, -UI_PADDING, 0, UI_PADDING)},
+	{anchor = Vector2.new(0,1), pos = UDim2.new(0, UI_PADDING, 1, -UI_PADDING)},
+	{anchor = Vector2.new(1,1), pos = UDim2.new(1, -UI_PADDING, 1, -UI_PADDING)},
 }
 
 local function arrangeUIs()
-	safePcall(function()
+	safe(function()
 		local cam = workspace.CurrentCamera
 		if not cam then return end
 		local view = cam.ViewportSize
-		local baseW = math.floor(view.X * 0.35)
-		local baseH = math.floor(view.Y * 0.45)
+		local baseW, baseH = math.floor(view.X * 0.35), math.floor(view.Y * 0.45)
 
 		for idx, ui in ipairs(foundUIs) do
-			local corner = cornerPositions[((idx-1) % #cornerPositions) + 1]
-			-- season multiplier
-			local multiplier = (ui.Name == "SeasonPassUI") and SEASON_UI_SIZE_MULTIPLIER or 1.0
-			local uiW = math.floor(baseW * multiplier)
-			local uiH = math.floor(baseH * multiplier)
+			local corner = corners[((idx-1) % #corners) + 1]
+			local mult = (ui.Name == "SeasonPassUI") and SEASON_UI_SIZE_MULTIPLIER or 1
+			local uiW, uiH = math.floor(baseW * mult), math.floor(baseH * mult)
 
 			for _, child in ipairs(ui:GetChildren()) do
 				if child:IsA("Frame") or child:IsA("ImageLabel") or child:IsA("ScrollingFrame") then
-					-- wrap property changes in pcall to prevent runtime errors killing the loop
-					safePcall(function()
+					safe(function()
 						child.Visible = true
 						child.AnchorPoint = corner.anchor
-						child.Position = corner.position
+						child.Position = corner.pos
 						child.Size = UDim2.new(0, uiW, 0, uiH)
-
-						local sc = child:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", child)
+						local sc = child:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
+						sc.Parent = child
 						sc.Scale = UI_SCALE
-					end, "arrange child "..tostring(child:GetFullName()))
+					end, "arrange "..child:GetFullName())
 				end
 			end
 		end
 	end, "arrangeUIs")
 end
 
--- initial arrange
 arrangeUIs()
 if workspace.CurrentCamera then
 	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-		safePcall(arrangeUIs, "ViewportSize changed arrangeUIs")
+		safe(arrangeUIs, "ViewportSize arrangeUIs")
 	end)
 end
 
--- ---------- scrolling frames management ----------
-local managed = {} -- entries: { frame = ScrollingFrame, layout = layoutObj, contentFrame = Frame|nil, currentY = number }
+local managed = {}
 
 local function findLayout(sf)
 	return sf:FindFirstChildOfClass("UIListLayout")
@@ -122,132 +105,96 @@ local function findLayout(sf)
 		or sf:FindFirstChildOfClass("UIPageLayout")
 end
 
-local function findManagedEntry(frame)
+local function findManaged(frame)
 	for _, e in ipairs(managed) do
 		if e.frame == frame then return e end
 	end
-	return nil
 end
 
-local function hookLayoutToFrame(sf, entry, layoutObj, contentFrame)
-	-- Unify: layoutObj is the UIList/UIGrid inside either the scrollingFrame or its Content child
+local function hookLayout(sf, entry, layoutObj, contentFrame)
 	entry.layout = layoutObj
 	entry.contentFrame = contentFrame
-
-	local function updateCanvasFromLayout()
-		safePcall(function()
-			if not entry or not entry.frame or not entry.frame.Parent then return end
+	local function updateCanvas()
+		safe(function()
+			if not entry.frame or not entry.frame.Parent then return end
 			local acs = layoutObj.AbsoluteContentSize
 			if acs and (acs.Y > 0 or acs.X > 0) then
 				if layoutObj:IsA("UIGridLayout") then
-					-- grid usually needs both axis; but store frames often only care Y
 					entry.frame.CanvasSize = UDim2.new(0, acs.X, 0, acs.Y)
 				else
 					entry.frame.CanvasSize = UDim2.new(0, 0, 0, acs.Y)
 				end
-				dbg("Updated CanvasSize from layout for", entry.frame:GetFullName(), acs)
+				dbg("Canvas from layout", entry.frame:GetFullName(), acs)
 			end
-		end, "updateCanvasFromLayout for "..tostring(entry and entry.frame and entry.frame:GetFullName()))
+		end, "updateCanvas "..tostring(entry.frame and entry.frame:GetFullName()))
 	end
-
-	-- listen to changes
-	layoutObj:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvasFromLayout)
-	-- immediate set
-	task.defer(updateCanvasFromLayout)
+	layoutObj:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
+	task.defer(updateCanvas)
 end
 
 local function addManaged(sf)
-	safePcall(function()
-		-- avoid duplicates
-		if findManagedEntry(sf) then return end
-
+	safe(function()
+		if findManaged(sf) then return end
 		local layout = findLayout(sf)
 		local entry = { frame = sf, layout = layout, contentFrame = nil, currentY = (sf.CanvasPosition and sf.CanvasPosition.Y) or 0 }
 		table.insert(managed, entry)
-
-		-- ensure manual scroll still works
 		sf.ScrollingEnabled = true
 		sf.ScrollBarThickness = 8
+		dbg("Managed:", sf:GetFullName())
 
-		dbg("Managed added:", sf:GetFullName())
+		if layout then hookLayout(sf, entry, layout, nil) end
 
-		-- If layout is directly on the ScrollingFrame, hook it
-		if layout then
-			hookLayoutToFrame(sf, entry, layout, nil)
-		end
-
-		-- Fallback for frames that use a 'Content' child (your Store case)
-		-- If the scrolling frame has a child named "Content" that holds the layout, attach that instead
 		local content = sf:FindFirstChild("Content")
 		if content and content:IsA("Frame") then
-			local innerLayout = content:FindFirstChildOfClass("UIListLayout") or content:FindFirstChildOfClass("UIGridLayout") or content:FindFirstChildOfClass("UIPageLayout")
+			local innerLayout = content:FindFirstChildOfClass("UIListLayout")
+				or content:FindFirstChildOfClass("UIGridLayout")
+				or content:FindFirstChildOfClass("UIPageLayout")
 			if innerLayout then
-				-- override layout hooking to use the content's layout
-				hookLayoutToFrame(sf, entry, innerLayout, content)
-				dbg("Hooked Content layout for", sf:GetFullName(), "via", content:GetFullName())
+				hookLayout(sf, entry, innerLayout, content)
+				dbg("Hooked Content", sf:GetFullName(), content:GetFullName())
 			else
-				-- If no layout yet inside content, watch for it
 				content.DescendantAdded:Connect(function(d)
-					if d and (d:IsA("UIListLayout") or d:IsA("UIGridLayout") or d:IsA("UIPageLayout")) then
-						if not entry.layout then
-							hookLayoutToFrame(sf, entry, d, content)
-							dbg("Found layout inside Content later for", sf:GetFullName(), d:GetFullName())
-						end
+					if not entry.layout and (d:IsA("UIListLayout") or d:IsA("UIGridLayout") or d:IsA("UIPageLayout")) then
+						hookLayout(sf, entry, d, content)
+						dbg("Late layout Content", sf:GetFullName(), d:GetFullName())
 					end
 				end)
 			end
-
-			-- Also, if content uses AutomaticSize or AbsoluteSize to expand, keep a watcher to set CanvasSize as fallback
-			-- This covers cases where AbsoluteCanvasSize is available and more reliable
 			coroutine.wrap(function()
 				while entry.frame and entry.frame.Parent do
 					local ok, acs = pcall(function() return sf.AbsoluteCanvasSize end)
-					if ok and acs and acs.Y and acs.Y > 0 then
-						-- If AbsoluteCanvasSize is present and meaningful, use it to compute CanvasSize (no-op usually)
-						-- but also ensure frame.CanvasSize is consistent if layout not present
-						if not entry.layout then
-							sf.CanvasSize = UDim2.new(0, 0, 0, acs.Y)
-							dbg("Set CanvasSize from AbsoluteCanvasSize for", sf:GetFullName(), acs.Y)
-						end
+					if ok and acs and acs.Y and acs.Y > 0 and not entry.layout then
+						sf.CanvasSize = UDim2.new(0, 0, 0, acs.Y)
+						dbg("Canvas from AbsoluteCanvasSize", sf:GetFullName(), acs.Y)
 					end
 					task.wait(1)
 				end
 			end)()
 		end
 
-		-- Listen for future layout additions directly under the ScrollingFrame (in case layout spawns later)
 		sf.DescendantAdded:Connect(function(d)
 			if not entry.layout and (d:IsA("UIListLayout") or d:IsA("UIGridLayout") or d:IsA("UIPageLayout")) then
-				hookLayoutToFrame(sf, entry, d, (d.Parent and d.Parent ~= sf) and d.Parent or nil)
-				dbg("Late layout attached for", sf:GetFullName(), d:GetFullName())
+				hookLayout(sf, entry, d, (d.Parent and d.Parent ~= sf) and d.Parent or nil)
+				dbg("Late layout", sf:GetFullName(), d:GetFullName())
 			end
 		end)
 	end, "addManaged")
 end
 
--- ---------- content / max scroll helpers ----------
 local function computeContentHeight(entry)
 	local f = entry.frame
 	if not f then return 0 end
-
-	-- 1: Prefer AbsoluteCanvasSize (most reliable)
 	if f.AbsoluteCanvasSize and f.AbsoluteCanvasSize.Y and f.AbsoluteCanvasSize.Y > 0 then
 		return f.AbsoluteCanvasSize.Y
 	end
-
-	-- 2: If we have a layout (direct or inside Content), prefer its AbsoluteContentSize
 	if entry.layout and entry.layout.AbsoluteContentSize and entry.layout.AbsoluteContentSize.Y and entry.layout.AbsoluteContentSize.Y > 0 then
 		return entry.layout.AbsoluteContentSize.Y
 	end
-
-	-- 3: Sum children heights as fallback (for very custom UIs)
 	local total = 0
-	local targetParent = entry.contentFrame or f
-	for _, child in ipairs(targetParent:GetChildren()) do
-		if child:IsA("GuiObject") and not child:IsA("UILayout") then
-			if child.AbsoluteSize and child.AbsoluteSize.Y then
-				total = total + math.max(0, child.AbsoluteSize.Y)
-			end
+	local parent = entry.contentFrame or f
+	for _, child in ipairs(parent:GetChildren()) do
+		if child:IsA("GuiObject") and not child:IsA("UILayout") and child.AbsoluteSize and child.AbsoluteSize.Y then
+			total += math.max(0, child.AbsoluteSize.Y)
 		end
 	end
 	return total
@@ -256,56 +203,44 @@ end
 local function getMaxScroll(entry)
 	local f = entry.frame
 	if not f or not f.Parent then return 0 end
-
-	-- prefer AbsoluteCanvasSize & AbsoluteWindowSize if present
 	if f.AbsoluteCanvasSize and f.AbsoluteWindowSize and f.AbsoluteCanvasSize.Y and f.AbsoluteWindowSize.Y and f.AbsoluteWindowSize.Y > 0 then
 		return math.max(0, f.AbsoluteCanvasSize.Y - f.AbsoluteWindowSize.Y)
 	end
-
-	-- fallback to contentHeight - frame size (AbsoluteSize)
 	local content = computeContentHeight(entry)
 	if f.AbsoluteSize and f.AbsoluteSize.Y and f.AbsoluteSize.Y > 0 then
 		return math.max(0, content - f.AbsoluteSize.Y)
 	end
-
 	return 0
 end
 
--- ---------- aggressive rescan (guarantee SeasonPass Store attach) ----------
 local function rescanAll()
-	safePcall(function()
+	safe(function()
 		for _, ui in ipairs(foundUIs) do
 			for _, desc in ipairs(ui:GetDescendants()) do
 				if desc:IsA("ScrollingFrame") then
 					addManaged(desc)
 				end
 			end
-
-			-- special: deep find "Store" nodes under SeasonPassUI
 			if ui.Name == "SeasonPassUI" then
 				for _, d in ipairs(ui:GetDescendants()) do
 					if d.Name == "Store" then
-						-- If the 'Store' itself is a scrollingframe (rare)
 						if d:IsA("ScrollingFrame") then
 							addManaged(d)
-							dbg("Attached Store (direct) as ScrollingFrame:", d:GetFullName())
+							dbg("Store direct SF", d:GetFullName())
 						else
-							-- Look inside 'Store' for an inner ScrollingFrame (your case)
 							for _, inner in ipairs(d:GetDescendants()) do
 								if inner:IsA("ScrollingFrame") then
 									addManaged(inner)
-									dbg("Attached inner ScrollingFrame inside Store:", inner:GetFullName())
-									-- Immediately try to attach Content layout if available (explicit)
-									-- This ensures the specific store case gets priority
+									dbg("Store inner SF", inner:GetFullName())
 									local content = inner:FindFirstChild("Content")
 									if content and content:IsA("Frame") then
-										local il = content:FindFirstChildOfClass("UIListLayout") or content:FindFirstChildOfClass("UIGridLayout")
+										local il = content:FindFirstChildOfClass("UIListLayout")
+											or content:FindFirstChildOfClass("UIGridLayout")
 										if il then
-											local entry = findManagedEntry(inner)
-											if entry then
-												-- override layout/content and hook
-												hookLayoutToFrame(inner, entry, il, content)
-												dbg("Force-hooked Content layout for Store ScrollingFrame:", inner:GetFullName(), "->", content:GetFullName())
+											local e = findManaged(inner)
+											if e then
+												hookLayout(inner, e, il, content)
+												dbg("Store force Content", inner:GetFullName(), content:GetFullName())
 											end
 										end
 									end
@@ -319,7 +254,6 @@ local function rescanAll()
 	end, "rescanAll")
 end
 
--- initial scan + periodic rescan
 rescanAll()
 task.spawn(function()
 	while true do
@@ -328,39 +262,30 @@ task.spawn(function()
 	end
 end)
 
--- ---------- smooth auto-scroll loop ----------
-local direction = 1
-local progress = 0
-local paused = false
-local pauseTimer = 0
+local direction, progress, paused, pauseTimer = 1, 0, false, 0
 
 local function progressToY(p, entry)
 	local max = getMaxScroll(entry)
 	if max <= 0 then return 0 end
-	p = math.clamp(p, 0, 1)
-	return p * max
+	return math.clamp(p, 0, 1) * max
 end
 
 RunService.RenderStepped:Connect(function(dt)
-	-- if nothing managed yet, skip
 	if #managed == 0 then return end
 
-	-- paused handling
 	if paused then
-		pauseTimer = pauseTimer + dt
+		pauseTimer += dt
 		if pauseTimer >= SCROLL_PAUSE_TIME then
 			paused = false
 			pauseTimer = 0
 			direction = -direction
-			dbg("Resuming scroll; direction:", direction)
+			dbg("Resume dir", direction)
 		else
 			return
 		end
 	end
 
-	-- advance progress
-	progress = progress + (dt * direction * SCROLL_SPEED)
-
+	progress += dt * direction * SCROLL_SPEED
 	if progress >= 1 then
 		progress = 1
 		paused = true
@@ -371,30 +296,24 @@ RunService.RenderStepped:Connect(function(dt)
 
 	for _, entry in ipairs(managed) do
 		local f = entry.frame
-		if not f or not f.Parent then goto cont end
-
-		-- ensure ready
+		if not f or not f.Parent then continue end
 		if f.AbsoluteSize and f.AbsoluteSize.Y > 0 then
 			local maxScroll = getMaxScroll(entry)
 			if maxScroll > 0 then
 				local target = progressToY(progress, entry)
 				entry.currentY = entry.currentY or (f.CanvasPosition and f.CanvasPosition.Y) or 0
 				local alpha = math.clamp(10 * dt, 0, 1)
-				entry.currentY = entry.currentY + (target - entry.currentY) * alpha
-				local writeY = math.floor(entry.currentY + 0.5)
+				entry.currentY += (target - entry.currentY) * alpha
+				local y = math.floor(entry.currentY + 0.5)
 				local ok, err = pcall(function()
-					f.CanvasPosition = Vector2.new(0, writeY)
+					f.CanvasPosition = Vector2.new(0, y)
 				end)
-				if not ok then
-					dbg("Failed to set CanvasPosition for", f:GetFullName(), ":", err)
-				end
+				if not ok then dbg("CanvasPosition fail", f:GetFullName(), err) end
 			end
 		else
-			dbg("Waiting for AbsoluteSize for", f:GetFullName())
+			dbg("Wait AbsoluteSize", f:GetFullName())
 		end
-
-		::cont::
 	end
 end)
 
-dbg("Auto-scroll loaded. Set DEBUG = true for verbose output.")
+dbg("Auto-scroll loaded. DEBUG = true for verbose.")
