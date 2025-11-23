@@ -1,544 +1,403 @@
-loadstring([==[
-local c={
-    "SlacoL( stpircSreyalPretratS ni tuP --
-XIF TNETNOC EROTS SSAPNOSAES + LLORCS-OTUA EVISNEFED LANIF --",
-    "
-)\"ecivreSnuR\"(ecivreSteG:emag = ecivreSnuR lacol
-)\"sreyalP\"(ecivreSteG:emag = sreyalP lacol
+-- FINAL DEFENSIVE AUTO-SCROLL + SEASONPASS STORE CONTENT FIX
+-- Put in StarterPlayerScripts (LocalScript)
 
-)tpirc",
-    "col
-GIFNOC --
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-)\"iuGreyalP\"(dlihCroFtiaW:reyalp = iuGreyalp lacol
-reyalPlacoL.sreyalP = reyalp lacol",
-    "lacol
-02 = GNIDDAP_IU lacol
-} \"IU_pohSteP\" ,\"IUssaPnosaeS\" ,\"pohS_deeS\" ,\"pohS_raeG\" { = SEMAN_IU la",
-    "acol
-2.1 = EMIT_ESUAP_LLORCS lacol
-57.0 = ELACS_IU lacol
-rewols = rewol --      21.0 = DEEPS_LLORCS ",
-    "--
+-- CONFIG
+local UI_NAMES = { "Gear_Shop", "Seed_Shop", "SeasonPassUI", "PetShop_UI" }
+local UI_PADDING = 20
+local SCROLL_SPEED = 0.12      -- lower = slower
+local UI_SCALE = 0.75
+local SCROLL_PAUSE_TIME = 1.2
+local RESCAN_INTERVAL = 1
+local DEBUG = false            -- set true to show detailed debug & errors
 
-srorre & gubed deliated wohs ot eurt tes --            eslaf = GUBED lacol
-1 = LAVRETNI_NACSER l",
-    "
-81.1 = REILPITLUM_EZIS_IU_NOSAES lacol
-)ezis emas = 0.1( reilpitlum siht yb reggib ssaPnosaeS ekaM ",
-    " noitcnuf lacol
+-- Make SeasonPass bigger by this multiplier (1.0 = same size)
+local SEASON_UI_SIZE_MULTIPLIER = 1.18
 
-dne
-dne	
-)... ,\"]GUBED llorcSotuA[\"(tnirp		
-neht GUBED fi	
-)...(gbd noitcnuf lacol
-",
-    "f:)\"s% :)s%( RORRE llorcSotuA\"((nraw		
-neht ko ton fi	
-)nf(llacp = rre ,ko lacol	
-)xtc ,nf(llacPefas",
-    "uter	
-dne	
-dne		
-))(kcabecart.gubed(tnirp			
-neht GUBED fi		
-)))rre(gnirtsot ,\"nwonknu\" ro xtc(tamro",
-    "Ayrt noitcnuf lacol
+local function dbg(...)
+	if DEBUG then
+		print("[AutoScroll DEBUG]", ...)
+	end
+end
 
-}{ = sIUdnuof lacol
----------- sIU egnarra & dnif ---------- --
+local function safePcall(fn, ctx)
+	local ok, err = pcall(fn)
+	if not ok then
+		warn(("AutoScroll ERROR (%s): %s"):format(ctx or "unknown", tostring(err)))
+		if DEBUG then
+			print(debug.traceback())
+		end
+	end
+	return ok, err
+end
 
-dne
-rre ,ko nr",
-    "eht eman == emaN.iu dna iu fi			
-od )SEMAN_IU(sriapi ni eman ,_ rof		
-)(noitcnuf(llacPefas	
-)iu(IUdd",
-    "		
-eurt = delbanE.iu					
-)iu ,sIUdnuof(tresni.elbat					
-neht )iu ,sIUdnuof(dnif.elbat ton fi				
-n",
-    "ne					
-eslaf = tesnIiuGerongI.iu						
-eslaf = nwapSnOteseR.iu						
-neht )\"iuGneercS\"(AsI:iu fi			",
-    "acPefas
-dnif laitini --
+-- ---------- find & arrange UIs ----------
+local foundUIs = {}
 
-dne
-)\"IUddAyrt\" ,dne	
-dne		
-dne			
-dne				
-)emaN.iu ,\":IU deddA\"(gbd					
-d",
-    "u fi		
-)eman(dlihCtsriFdniF:iuGreyalp = iu lacol		
-od )SEMAN_IU(sriapi ni eman ,_ rof	
-)(noitcnuf(ll",
-    "	
-)dlihc(noitcnuf(tcennoC:deddAdlihC.iuGreyalp
+local function tryAddUI(ui)
+	safePcall(function()
+		for _, name in ipairs(UI_NAMES) do
+			if ui and ui.Name == name then
+				if not table.find(foundUIs, ui) then
+					table.insert(foundUIs, ui)
+					ui.Enabled = true
+					if ui:IsA("ScreenGui") then
+						ui.ResetOnSpawn = false
+						ui.IgnoreGuiInset = false
+					end
+					dbg("Added UI:", ui.Name)
+				end
+			end
+		end
+	end, "tryAddUI")
+end
 
-)\"dnif IU laitini\" ,dne
-dne	
-dne )iu(IUddAyrt neht i",
-    "a{	
-{ = snoitisoPrenroc lacol
+-- initial find
+safePcall(function()
+	for _, name in ipairs(UI_NAMES) do
+		local ui = playerGui:FindFirstChild(name)
+		if ui then tryAddUI(ui) end
+	end
+end, "initial UI find")
 
-)dne
-)\"IUddAyrt deddAdlihC\" ,dne )dlihc(IUddAyrt )(noitcnuf(llacPefas",
-    "en.2rotceV = rohcna{	
-,})GNIDDAP_IU ,0 ,GNIDDAP_IU ,0(wen.2miDU = noitisop ,)0,0(wen.2rotceV = rohcn",
-    " noitisop ,)1,0(wen.2rotceV = rohcna{	
-,})GNIDDAP_IU ,0 ,GNIDDAP_IU- ,1(wen.2miDU = noitisop ,)0,1(w",
-    "U- ,1(wen.2miDU = noitisop ,)1,1(wen.2rotceV = rohcna{	
-,})GNIDDAP_IU- ,1 ,GNIDDAP_IU ,0(wen.2miDU =",
-    "krow = mac lacol		
-)(noitcnuf(llacPefas	
-)(sIUegnarra noitcnuf lacol
+playerGui.ChildAdded:Connect(function(child)
+	safePcall(function() tryAddUI(child) end, "ChildAdded tryAddUI")
+end)
 
+local cornerPositions = {
+	{anchor = Vector2.new(0,0), position = UDim2.new(0, UI_PADDING, 0, UI_PADDING)},
+	{anchor = Vector2.new(1,0), position = UDim2.new(1, -UI_PADDING, 0, UI_PADDING)},
+	{anchor = Vector2.new(0,1), position = UDim2.new(0, UI_PADDING, 1, -UI_PADDING)},
+	{anchor = Vector2.new(1,1), position = UDim2.new(1, -UI_PADDING, 1, -UI_PADDING)},
 }
-,})GNIDDAP_IU- ,1 ,GNIDDAP_I",
-    "tam = Wesab lacol		
-eziStropweiV.mac = weiv lacol		
-dne nruter neht mac ton fi		
-aremaCtnerruC.ecaps",
-    " )sIUdnuof(sriapi ni iu ,xdi rof		
 
-)54.0 * Y.weiv(roolf.htam = Hesab lacol		
-)53.0 * X.weiv(roolf.h",
-    "ol			
-reilpitlum nosaes --			
-]1 + )snoitisoPrenroc# % )1-xdi(([snoitisoPrenroc = renroc lacol			
-od",
-    "tam = Wiu lacol			
-0.1 ro REILPITLUM_EZIS_IU_NOSAES dna )\"IUssaPnosaeS\" == emaN.iu( = reilpitlum lac",
-    "sriapi ni dlihc ,_ rof			
+local function arrangeUIs()
+	safePcall(function()
+		local cam = workspace.CurrentCamera
+		if not cam then return end
+		local view = cam.ViewportSize
+		local baseW = math.floor(view.X * 0.35)
+		local baseH = math.floor(view.Y * 0.45)
 
-)reilpitlum * Hesab(roolf.htam = Hiu lacol			
-)reilpitlum * Wesab(roolf.h",
-    "rFgnillorcS\"(AsI:dlihc ro )\"lebaLegamI\"(AsI:dlihc ro )\"emarF\"(AsI:dlihc fi				
-od ))(nerdlihCteG:iu(",
-    "as					
-pool eht gnillik srorre emitnur tneverp ot llacp ni segnahc ytreporp parw --					
-neht )\"ema",
-    "oP.dlihc						
-rohcna.renroc = tnioProhcnA.dlihc						
-eurt = elbisiV.dlihc						
-)(noitcnuf(llacPef",
-    "iFdniF:dlihc = cs lacol						
+		for idx, ui in ipairs(foundUIs) do
+			local corner = cornerPositions[((idx-1) % #cornerPositions) + 1]
+			-- season multiplier
+			local multiplier = (ui.Name == "SeasonPassUI") and SEASON_UI_SIZE_MULTIPLIER or 1.0
+			local uiW = math.floor(baseW * multiplier)
+			local uiH = math.floor(baseH * multiplier)
 
-)Hiu ,0 ,Wiu ,0(wen.2miDU = eziS.dlihc						
-noitisop.renroc = noitis",
-    "ra\" ,dne					
-ELACS_IU = elacS.cs						
-)dlihc ,\"elacSIU\"(wen.ecnatsnI ro )\"elacSIU\"(ssalCfOdlihCtsr",
-    "itini --
+			for _, child in ipairs(ui:GetChildren()) do
+				if child:IsA("Frame") or child:IsA("ImageLabel") or child:IsA("ScrollingFrame") then
+					-- wrap property changes in pcall to prevent runtime errors killing the loop
+					safePcall(function()
+						child.Visible = true
+						child.AnchorPoint = corner.anchor
+						child.Position = corner.position
+						child.Size = UDim2.new(0, uiW, 0, uiH)
 
-dne
-)\"sIUegnarra\" ,dne	
-dne		
-dne			
-dne				
-)))(emaNlluFteG:dlihc(gnirtsot..\" dlihc egnar",
-    "SdegnahCytreporPteG:aremaCtnerruC.ecapskrow	
-neht aremaCtnerruC.ecapskrow fi
-)(sIUegnarra
-egnarra la",
-    "
-)\"sIUegnarra degnahc eziStropweiV\" ,sIUegnarra(llacPefas		
-)(noitcnuf(tcennoC:)\"eziStropweiV\"(langi",
-    "arf { :seirtne -- }{ = deganam lacol
----------- tnemeganam semarf gnillorcs ---------- --
+						local sc = child:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", child)
+						sc.Scale = UI_SCALE
+					end, "arrange child "..tostring(child:GetFullName()))
+				end
+			end
+		end
+	end, "arrangeUIs")
+end
 
-dne
-)dne	",
-    "itcnuf lacol
+-- initial arrange
+arrangeUIs()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		safePcall(arrangeUIs, "ViewportSize changed arrangeUIs")
+	end)
+end
 
-} rebmun = Ytnerruc ,lin|emarF = emarFtnetnoc ,jbOtuoyal = tuoyal ,emarFgnillorcS = em",
-    "IU\"(ssalCfOdlihCtsriFdniF:fs ro		
-)\"tuoyaLtsiLIU\"(ssalCfOdlihCtsriFdniF:fs nruter	
-)fs(tuoyaLdnif no",
-    "marf(yrtnEdeganaMdnif noitcnuf lacol
+-- ---------- scrolling frames management ----------
+local managed = {} -- entries: { frame = ScrollingFrame, layout = layoutObj, contentFrame = Frame|nil, currentY = number }
 
-dne
-)\"tuoyaLegaPIU\"(ssalCfOdlihCtsriFdniF:fs ro		
-)\"tuoyaLdirG",
-    "col
+local function findLayout(sf)
+	return sf:FindFirstChildOfClass("UIListLayout")
+		or sf:FindFirstChildOfClass("UIGridLayout")
+		or sf:FindFirstChildOfClass("UIPageLayout")
+end
 
-dne
-lin nruter	
-dne	
-dne e nruter neht emarf == emarf.e fi		
-od )deganam(sriapi ni e ,_ rof	
-)e",
-    "tsiLIU eht si jbOtuoyal :yfinU --	
-)emarFtnetnoc ,jbOtuoyal ,yrtne ,fs(emarFoTtuoyaLkooh noitcnuf la",
-    "etnoc.yrtne	
-jbOtuoyal = tuoyal.yrtne	
-dlihc tnetnoC sti ro emarFgnillorcs eht rehtie edisni dirGIU/",
-    "ne ton fi			
-)(noitcnuf(llacPefas		
-)(tuoyaLmorFsavnaCetadpu noitcnuf lacol	
+local function findManagedEntry(frame)
+	for _, e in ipairs(managed) do
+		if e.frame == frame then return e end
+	end
+	return nil
+end
 
-emarFtnetnoc = emarFtn",
-    "oCetulosbA.jbOtuoyal = sca lacol			
-dne nruter neht tneraP.emarf.yrtne ton ro emarf.yrtne ton ro yrt",
-    "				
-neht )\"tuoyaLdirGIU\"(AsI:jbOtuoyal fi				
-neht )0 > X.sca ro 0 > Y.sca( dna sca fi			
-eziStnetn",
-    "U = eziSsavnaC.emarf.yrtne					
-Y erac ylno netfo semarf erots tub ;sixa htob sdeen yllausu dirg --	",
-    "ne				
-)Y.sca ,0 ,0 ,0(wen.2miDU = eziSsavnaC.emarf.yrtne					
-esle				
-)Y.sca ,0 ,X.sca ,0(wen.2miD",
-    "tadpu\" ,dne		
-dne			
-)sca ,)(emaNlluFteG:emarf.yrtne ,\"rof tuoyal morf eziSsavnaC detadpU\"(gbd				
-d",
-    "il --	
+local function hookLayoutToFrame(sf, entry, layoutObj, contentFrame)
+	-- Unify: layoutObj is the UIList/UIGrid inside either the scrollingFrame or its Content child
+	entry.layout = layoutObj
+	entry.contentFrame = contentFrame
 
-dne	
-)))(emaNlluFteG:emarf.yrtne dna emarf.yrtne dna yrtne(gnirtsot..\" rof tuoyaLmorFsavnaCe",
-    "LmorFsavnaCetadpu(tcennoC:)\"eziStnetnoCetulosbA\"(langiSdegnahCytreporPteG:jbOtuoyal	
-segnahc ot nets",
-    "fas	
-)fs(deganaMdda noitcnuf lacol
+	local function updateCanvasFromLayout()
+		safePcall(function()
+			if not entry or not entry.frame or not entry.frame.Parent then return end
+			local acs = layoutObj.AbsoluteContentSize
+			if acs and (acs.Y > 0 or acs.X > 0) then
+				if layoutObj:IsA("UIGridLayout") then
+					-- grid usually needs both axis; but store frames often only care Y
+					entry.frame.CanvasSize = UDim2.new(0, acs.X, 0, acs.Y)
+				else
+					entry.frame.CanvasSize = UDim2.new(0, 0, 0, acs.Y)
+				end
+				dbg("Updated CanvasSize from layout for", entry.frame:GetFullName(), acs)
+			end
+		end, "updateCanvasFromLayout for "..tostring(entry and entry.frame and entry.frame:GetFullName()))
+	end
 
-dne
-)tuoyaLmorFsavnaCetadpu(refed.ksat	
-tes etaidemmi --	
-)tuoya",
-    " = tuoyal lacol		
+	-- listen to changes
+	layoutObj:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvasFromLayout)
+	-- immediate set
+	task.defer(updateCanvasFromLayout)
+end
 
-dne nruter neht )fs(yrtnEdeganaMdnif fi		
-setacilpud diova --		
-)(noitcnuf(llacPe",
-    "naC.fs( = Ytnerruc ,lin = emarFtnetnoc ,tuoyal = tuoyal ,fs = emarf { = yrtne lacol		
-)fs(tuoyaLdnif",
-    "lorcs launam erusne --		
+local function addManaged(sf)
+	safePcall(function()
+		-- avoid duplicates
+		if findManagedEntry(sf) then return end
 
-)yrtne ,deganam(tresni.elbat		
-} 0 ro )Y.noitisoPsavnaC.fs dna noitisoPsav",
-    "G:fs ,\":dedda deganaM\"(gbd		
+		local layout = findLayout(sf)
+		local entry = { frame = sf, layout = layout, contentFrame = nil, currentY = (sf.CanvasPosition and sf.CanvasPosition.Y) or 0 }
+		table.insert(managed, entry)
 
-8 = ssenkcihTraBllorcS.fs		
-eurt = delbanEgnillorcS.fs		
-skrow llits l",
-    "yaLkooh			
-neht tuoyal fi		
-ti kooh ,emarFgnillorcS eht no yltcerid si tuoyal fI --		
+		-- ensure manual scroll still works
+		sf.ScrollingEnabled = true
+		sf.ScrollBarThickness = 8
 
-))(emaNlluFte",
-    " ruoy( dlihc 'tnetnoC' a esu taht semarf rof kcabllaF --		
+		dbg("Managed added:", sf:GetFullName())
 
-dne		
-)lin ,tuoyal ,yrtne ,fs(emarFoTtuo",
-    "ht hcatta ,tuoyal eht sdloh taht \"tnetnoC\" deman dlihc a sah emarf gnillorcs eht fI --		
-)esac erotS",
-    "neht )\"emarF\"(AsI:tnetnoc dna tnetnoc fi		
-)\"tnetnoC\"(dlihCtsriFdniF:fs = tnetnoc lacol		
-daetsni ta",
-    "alCfOdlihCtsriFdniF:tnetnoc ro )\"tuoyaLtsiLIU\"(ssalCfOdlihCtsriFdniF:tnetnoc = tuoyaLrenni lacol			
-",
-    "vo --				
-neht tuoyaLrenni fi			
-)\"tuoyaLegaPIU\"(ssalCfOdlihCtsriFdniF:tnetnoc ro )\"tuoyaLdirGIU\"(ss",
-    "tnoc ,tuoyaLrenni ,yrtne ,fs(emarFoTtuoyaLkooh				
-tuoyal s'tnetnoc eht esu ot gnikooh tuoyal edirre",
-    "		
-esle			
-))(emaNlluFteG:tnetnoc ,\"aiv\" ,)(emaNlluFteG:fs ,\"rof tuoyal tnetnoC dekooH\"(gbd				
-)tne",
-    "	
-)d(noitcnuf(tcennoC:deddAtnadnecseD.tnetnoc				
-ti rof hctaw ,tnetnoc edisni tey tuoyal on fI --		",
-    "fi						
-neht ))\"tuoyaLegaPIU\"(AsI:d ro )\"tuoyaLdirGIU\"(AsI:d ro )\"tuoyaLtsiLIU\"(AsI:d( dna d fi				",
-    "isni tuoyal dnuoF\"(gbd							
-)tnetnoc ,d ,yrtne ,fs(emarFoTtuoyaLkooh							
-neht tuoyal.yrtne ton ",
-    " --			
+		-- If layout is directly on the ScrollingFrame, hook it
+		if layout then
+			hookLayoutToFrame(sf, entry, layout, nil)
+		end
 
-dne			
-)dne				
-dne					
-dne						
-))(emaNlluFteG:d ,)(emaNlluFteG:fs ,\"rof retal tnetnoC ed",
-    "f sa eziSsavnaC tes ot rehctaw a peek ,dnapxe ot eziSetulosbA ro eziScitamotuA sesu tnetnoc fi ,oslA",
-    "enituoroc			
-elbailer erom dna elbaliava si eziSsavnaCetulosbA erehw sesac srevoc sihT --			
-kcablla",
-    "noitcnuf(llacp = sca ,ko lacol					
-od tneraP.emarf.yrtne dna emarf.yrtne elihw				
-)(noitcnuf(parw.",
-    "sbA fI --						
-neht 0 > Y.sca dna Y.sca dna sca dna ko fi					
-)dne eziSsavnaCetulosbA.fs nruter )(",
-    "tub --						
-)yllausu po-on( eziSsavnaC etupmoc ot ti esu ,lufgninaem dna tneserp si eziSsavnaCetulo",
-    "			
-neht tuoyal.yrtne ton fi						
-tneserp ton tuoyal fi tnetsisnoc si eziSsavnaC.emarf erusne osla ",
-    "rof eziSsavnaCetulosbA morf eziSsavnaC teS\"(gbd							
-)Y.sca ,0 ,0 ,0(wen.2miDU = eziSsavnaC.fs				",
-    "etsiL --		
+		-- Fallback for frames that use a 'Content' child (your Store case)
+		-- If the scrolling frame has a child named "Content" that holds the layout, attach that instead
+		local content = sf:FindFirstChild("Content")
+		if content and content:IsA("Frame") then
+			local innerLayout = content:FindFirstChildOfClass("UIListLayout") or content:FindFirstChildOfClass("UIGridLayout") or content:FindFirstChildOfClass("UIPageLayout")
+			if innerLayout then
+				-- override layout hooking to use the content's layout
+				hookLayoutToFrame(sf, entry, innerLayout, content)
+				dbg("Hooked Content layout for", sf:GetFullName(), "via", content:GetFullName())
+			else
+				-- If no layout yet inside content, watch for it
+				content.DescendantAdded:Connect(function(d)
+					if d and (d:IsA("UIListLayout") or d:IsA("UIGridLayout") or d:IsA("UIPageLayout")) then
+						if not entry.layout then
+							hookLayoutToFrame(sf, entry, d, content)
+							dbg("Found layout inside Content later for", sf:GetFullName(), d:GetFullName())
+						end
+					end
+				end)
+			end
 
-dne		
-)()dne			
-dne				
-)1(tiaw.ksat					
-dne					
-dne						
-)Y.sca ,)(emaNlluFteG:fs ,\"",
-    "D.fs		
-)retal snwaps tuoyal esac ni( emarFgnillorcS eht rednu yltcerid snoitidda tuoyal erutuf rof n",
-    "irGIU\"(AsI:d ro )\"tuoyaLtsiLIU\"(AsI:d( dna tuoyal.yrtne ton fi			
-)d(noitcnuf(tcennoC:deddAtnadnecse",
-    " tneraP.d dna tneraP.d( ,d ,yrtne ,fs(emarFoTtuoyaLkooh				
-neht ))\"tuoyaLegaPIU\"(AsI:d ro )\"tuoyaLd",
-    "	
-))(emaNlluFteG:d ,)(emaNlluFteG:fs ,\"rof dehcatta tuoyal etaL\"(gbd				
-)lin ro tneraP.d dna )fs =~",
-    "uf lacol
----------- srepleh llorcs xam / tnetnoc ---------- --
+			-- Also, if content uses AutomaticSize or AbsoluteSize to expand, keep a watcher to set CanvasSize as fallback
+			-- This covers cases where AbsoluteCanvasSize is available and more reliable
+			coroutine.wrap(function()
+				while entry.frame and entry.frame.Parent do
+					local ok, acs = pcall(function() return sf.AbsoluteCanvasSize end)
+					if ok and acs and acs.Y and acs.Y > 0 then
+						-- If AbsoluteCanvasSize is present and meaningful, use it to compute CanvasSize (no-op usually)
+						-- but also ensure frame.CanvasSize is consistent if layout not present
+						if not entry.layout then
+							sf.CanvasSize = UDim2.new(0, 0, 0, acs.Y)
+							dbg("Set CanvasSize from AbsoluteCanvasSize for", sf:GetFullName(), acs.Y)
+						end
+					end
+					task.wait(1)
+				end
+			end)()
+		end
 
-dne
-)\"deganaMdda\" ,dne	
-)dne		
-dne		",
-    "referP :1 --	
+		-- Listen for future layout additions directly under the ScrollingFrame (in case layout spawns later)
+		sf.DescendantAdded:Connect(function(d)
+			if not entry.layout and (d:IsA("UIListLayout") or d:IsA("UIGridLayout") or d:IsA("UIPageLayout")) then
+				hookLayoutToFrame(sf, entry, d, (d.Parent and d.Parent ~= sf) and d.Parent or nil)
+				dbg("Late layout attached for", sf:GetFullName(), d:GetFullName())
+			end
+		end)
+	end, "addManaged")
+end
 
-dne 0 nruter neht f ton fi	
-emarf.yrtne = f lacol	
-)yrtne(thgieHtnetnoCetupmoc noitcn",
-    "ulosbA.f dna Y.eziSsavnaCetulosbA.f dna eziSsavnaCetulosbA.f fi	
-)elbailer tsom( eziSsavnaCetulosbA ",
-    " ro tcerid( tuoyal a evah ew fI :2 --	
+-- ---------- content / max scroll helpers ----------
+local function computeContentHeight(entry)
+	local f = entry.frame
+	if not f then return 0 end
 
-dne	
-Y.eziSsavnaCetulosbA.f nruter		
-neht 0 > Y.eziSsavnaCet",
-    "ziStnetnoCetulosbA.tuoyal.yrtne dna tuoyal.yrtne fi	
-eziStnetnoCetulosbA sti referp ,)tnetnoC edisni",
-    "ne nruter		
-neht 0 > Y.eziStnetnoCetulosbA.tuoyal.yrtne dna Y.eziStnetnoCetulosbA.tuoyal.yrtne dna e",
-    ")sIU motsuc yrev rof( kcabllaf sa sthgieh nerdlihc muS :3 --	
+	-- 1: Prefer AbsoluteCanvasSize (most reliable)
+	if f.AbsoluteCanvasSize and f.AbsoluteCanvasSize.Y and f.AbsoluteCanvasSize.Y > 0 then
+		return f.AbsoluteCanvasSize.Y
+	end
 
-dne	
-Y.eziStnetnoCetulosbA.tuoyal.yrt",
-    "tneraPtegrat(sriapi ni dlihc ,_ rof	
-f ro emarFtnetnoc.yrtne = tneraPtegrat lacol	
-0 = latot lacol	
-",
-    "ulosbA.dlihc fi			
-neht )\"tuoyaLIU\"(AsI:dlihc ton dna )\"tcejbOiuG\"(AsI:dlihc fi		
-od ))(nerdlihCteG:",
-    "		
-dne			
-)Y.eziSetulosbA.dlihc ,0(xam.htam + latot = latot				
-neht Y.eziSetulosbA.dlihc dna eziSet",
-    "n ro f ton fi	
-emarf.yrtne = f lacol	
-)yrtne(llorcSxaMteg noitcnuf lacol
+	-- 2: If we have a layout (direct or inside Content), prefer its AbsoluteContentSize
+	if entry.layout and entry.layout.AbsoluteContentSize and entry.layout.AbsoluteContentSize.Y and entry.layout.AbsoluteContentSize.Y > 0 then
+		return entry.layout.AbsoluteContentSize.Y
+	end
 
-dne
-latot nruter	
-dne	
-dne",
-    "A.f fi	
-tneserp fi eziSwodniWetulosbA & eziSsavnaCetulosbA referp --	
+	-- 3: Sum children heights as fallback (for very custom UIs)
+	local total = 0
+	local targetParent = entry.contentFrame or f
+	for _, child in ipairs(targetParent:GetChildren()) do
+		if child:IsA("GuiObject") and not child:IsA("UILayout") then
+			if child.AbsoluteSize and child.AbsoluteSize.Y then
+				total = total + math.max(0, child.AbsoluteSize.Y)
+			end
+		end
+	end
+	return total
+end
 
-dne 0 nruter neht tneraP.f to",
-    "dna Y.eziSwodniWetulosbA.f dna Y.eziSsavnaCetulosbA.f dna eziSwodniWetulosbA.f dna eziSsavnaCetulosb",
-    ".eziSwodniWetulosbA.f - Y.eziSsavnaCetulosbA.f ,0(xam.htam nruter		
-neht 0 > Y.eziSwodniWetulosbA.f ",
-    "eHtnetnoCetupmoc = tnetnoc lacol	
-)eziSetulosbA( ezis emarf - thgieHtnetnoc ot kcabllaf --	
+local function getMaxScroll(entry)
+	local f = entry.frame
+	if not f or not f.Parent then return 0 end
 
-dne	
-)Y",
-    "(xam.htam nruter		
-neht 0 > Y.eziSetulosbA.f dna Y.eziSetulosbA.f dna eziSetulosbA.f fi	
-)yrtne(thgi",
-    "osaeS eetnaraug( nacser evissergga ---------- --
+	-- prefer AbsoluteCanvasSize & AbsoluteWindowSize if present
+	if f.AbsoluteCanvasSize and f.AbsoluteWindowSize and f.AbsoluteCanvasSize.Y and f.AbsoluteWindowSize.Y and f.AbsoluteWindowSize.Y > 0 then
+		return math.max(0, f.AbsoluteCanvasSize.Y - f.AbsoluteWindowSize.Y)
+	end
 
-dne
-0 nruter	
+	-- fallback to contentHeight - frame size (AbsoluteSize)
+	local content = computeContentHeight(entry)
+	if f.AbsoluteSize and f.AbsoluteSize.Y and f.AbsoluteSize.Y > 0 then
+		return math.max(0, content - f.AbsoluteSize.Y)
+	end
 
-dne	
-)Y.eziSetulosbA.f - tnetnoc ,0",
-    "riapi ni iu ,_ rof		
-)(noitcnuf(llacPefas	
-)(llAnacser noitcnuf lacol
----------- )hcatta erotS ssaPn",
-    "ht )\"emarFgnillorcS\"(AsI:csed fi				
-od ))(stnadnecseDteG:iu(sriapi ni csed ,_ rof			
-od )sIUdnuof(s",
-    "	
-IUssaPnosaeS rednu sedon \"erotS\" dnif peed :laiceps --			
+	return 0
+end
 
-dne			
-dne				
-)csed(deganaMdda					
-ne",
-    "== emaN.d fi					
-od ))(stnadnecseDteG:iu(sriapi ni d ,_ rof				
-neht \"IUssaPnosaeS\" == emaN.iu fi		",
-    "arFgnillorcS\"(AsI:d fi						
-)erar( emarfgnillorcs a si flesti 'erotS' eht fI --						
-neht \"erotS\" ",
-    "maNlluFteG:d ,\":emarFgnillorcS sa )tcerid( erotS dehcattA\"(gbd							
-)d(deganaMdda							
-neht )\"em",
-    " ,_ rof							
-)esac ruoy( emarFgnillorcS renni na rof 'erotS' edisni kooL --							
-esle						
-))(e",
-    "ganaMdda									
-neht )\"emarFgnillorcS\"(AsI:renni fi								
-od ))(stnadnecseDteG:d(sriapi ni renni",
-    "									
-))(emaNlluFteG:renni ,\":erotS edisni emarFgnillorcS renni dehcattA\"(gbd									
-)renni(de",
-    "eps eht serusne sihT --									
-)ticilpxe( elbaliava fi tuoyal tnetnoC hcatta ot yrt yletaidemmI --",
-    " fi									
-)\"tnetnoC\"(dlihCtsriFdniF:renni = tnetnoc lacol									
-ytiroirp steg esac erots cific",
-    "oyaLtsiLIU\"(ssalCfOdlihCtsriFdniF:tnetnoc = li lacol										
-neht )\"emarF\"(AsI:tnetnoc dna tnetnoc",
-    " = yrtne lacol											
-neht li fi										
-)\"tuoyaLdirGIU\"(ssalCfOdlihCtsriFdniF:tnetnoc ro )\"tu",
-    "			
-kooh dna tnetnoc/tuoyal edirrevo --												
-neht yrtne fi											
-)renni(yrtnEdeganaMdnif",
-    "f tuoyal tnetnoC dekooh-ecroF\"(gbd												
-)tnetnoc ,li ,yrtne ,renni(emarFoTtuoyaLkooh									",
-    "								
-dne											
-))(emaNlluFteG:tnetnoc ,\">-\" ,)(emaNlluFteG:renni ,\":emarFgnillorcS erotS ro",
-    ")\"llAnacser\" ,dne	
-dne		
-dne			
-dne				
-dne					
-dne						
-dne							
-dne								
-dne									
-dne		",
-    "llAnacser		
-od eurt elihw	
-)(noitcnuf(nwaps.ksat
-)(llAnacser
-nacser cidoirep + nacs laitini --
+-- ---------- aggressive rescan (guarantee SeasonPass Store attach) ----------
+local function rescanAll()
+	safePcall(function()
+		for _, ui in ipairs(foundUIs) do
+			for _, desc in ipairs(ui:GetDescendants()) do
+				if desc:IsA("ScrollingFrame") then
+					addManaged(desc)
+				end
+			end
 
-dne
-",
-    "id lacol
----------- pool llorcs-otua htooms ---------- --
+			-- special: deep find "Store" nodes under SeasonPassUI
+			if ui.Name == "SeasonPassUI" then
+				for _, d in ipairs(ui:GetDescendants()) do
+					if d.Name == "Store" then
+						-- If the 'Store' itself is a scrollingframe (rare)
+						if d:IsA("ScrollingFrame") then
+							addManaged(d)
+							dbg("Attached Store (direct) as ScrollingFrame:", d:GetFullName())
+						else
+							-- Look inside 'Store' for an inner ScrollingFrame (your case)
+							for _, inner in ipairs(d:GetDescendants()) do
+								if inner:IsA("ScrollingFrame") then
+									addManaged(inner)
+									dbg("Attached inner ScrollingFrame inside Store:", inner:GetFullName())
+									-- Immediately try to attach Content layout if available (explicit)
+									-- This ensures the specific store case gets priority
+									local content = inner:FindFirstChild("Content")
+									if content and content:IsA("Frame") then
+										local il = content:FindFirstChildOfClass("UIListLayout") or content:FindFirstChildOfClass("UIGridLayout")
+										if il then
+											local entry = findManagedEntry(inner)
+											if entry then
+												-- override layout/content and hook
+												hookLayoutToFrame(inner, entry, il, content)
+												dbg("Force-hooked Content layout for Store ScrollingFrame:", inner:GetFullName(), "->", content:GetFullName())
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end, "rescanAll")
+end
 
-)dne
-dne	
-)LAVRETNI_NACSER(tiaw.ksat		
-)(",
-    "YoTssergorp noitcnuf lacol
+-- initial scan + periodic rescan
+rescanAll()
+task.spawn(function()
+	while true do
+		rescanAll()
+		task.wait(RESCAN_INTERVAL)
+	end
+end)
 
-0 = remiTesuap lacol
-eslaf = desuap lacol
-0 = ssergorp lacol
-1 = noitcer",
-    "
-)1 ,0 ,p(pmalc.htam = p	
-dne 0 nruter neht 0 =< xam fi	
-)yrtne(llorcSxaMteg = xam lacol	
-)yrtne ,p(",
-    "
-piks ,tey deganam gnihton fi --	
-)td(noitcnuf(tcennoC:deppetSredneR.ecivreSnuR
+-- ---------- smooth auto-scroll loop ----------
+local direction = 1
+local progress = 0
+local paused = false
+local pauseTimer = 0
 
-dne
-xam * p nruter	",
-    "d + remiTesuap = remiTesuap		
-neht desuap fi	
-gnildnah desuap --	
+local function progressToY(p, entry)
+	local max = getMaxScroll(entry)
+	if max <= 0 then return 0 end
+	p = math.clamp(p, 0, 1)
+	return p * max
+end
 
-dne nruter neht 0 == deganam# fi	",
-    "erid- = noitcerid			
-0 = remiTesuap			
-eslaf = desuap			
-neht EMIT_ESUAP_LLORCS => remiTesuap fi		
-t",
-    "gorp ecnavda --	
+RunService.RenderStepped:Connect(function(dt)
+	-- if nothing managed yet, skip
+	if #managed == 0 then return end
 
-dne	
-dne		
-nruter			
-esle		
-)noitcerid ,\":noitcerid ;llorcs gnimuseR\"(gbd			
-noitc",
-    "	
-1 = ssergorp		
-neht 1 => ssergorp fi	
+	-- paused handling
+	if paused then
+		pauseTimer = pauseTimer + dt
+		if pauseTimer >= SCROLL_PAUSE_TIME then
+			paused = false
+			pauseTimer = 0
+			direction = -direction
+			dbg("Resuming scroll; direction:", direction)
+		else
+			return
+		end
+	end
 
-)DEEPS_LLORCS * noitcerid * td( + ssergorp = ssergorp	
-sser",
-    "iapi ni yrtne ,_ rof	
+	-- advance progress
+	progress = progress + (dt * direction * SCROLL_SPEED)
 
-dne	
-eurt = desuap		
-0 = ssergorp		
-neht 0 =< ssergorp fiesle	
-eurt = desuap	",
-    "er erusne --		
+	if progress >= 1 then
+		progress = 1
+		paused = true
+	elseif progress <= 0 then
+		progress = 0
+		paused = true
+	end
 
-dne tnoc otog neht tneraP.f ton ro f ton fi		
-emarf.yrtne = f lacol		
-od )deganam(sr",
-    "fi			
-)yrtne(llorcSxaMteg = llorcSxam lacol			
-neht 0 > Y.eziSetulosbA.f dna eziSetulosbA.f fi		
-yda",
-    "erruc.yrtne = Ytnerruc.yrtne				
-)yrtne ,ssergorp(YoTssergorp = tegrat lacol				
-neht 0 > llorcSxam ",
-    "		
-)1 ,0 ,td * 01(pmalc.htam = ahpla lacol				
-0 ro )Y.noitisoPsavnaC.f dna noitisoPsavnaC.f( ro Ytn",
-    "(roolf.htam = Yetirw lacol				
-ahpla * )Ytnerruc.yrtne - tegrat( + Ytnerruc.yrtne = Ytnerruc.yrtne		",
-    "rw ,0(wen.2rotceV = noitisoPsavnaC.f					
-)(noitcnuf(llacp = rre ,ko lacol				
-)5.0 + Ytnerruc.yrtne",
-    ",\":\" ,)(emaNlluFteG:f ,\"rof noitisoPsavnaC tes ot deliaF\"(gbd					
-neht ko ton fi				
-)dne				
-)Yeti",
-    ":tnoc::		
+	for _, entry in ipairs(managed) do
+		local f = entry.frame
+		if not f or not f.Parent then goto cont end
 
-dne		
-))(emaNlluFteG:f ,\"rof eziSetulosbA rof gnitiaW\"(gbd			
-esle		
-dne			
-dne				
-)rre ",
-    "
-)\".tuptuo esobrev rof eurt = GUBED teS .dedaol llorcs-otuA\"(gbd
+		-- ensure ready
+		if f.AbsoluteSize and f.AbsoluteSize.Y > 0 then
+			local maxScroll = getMaxScroll(entry)
+			if maxScroll > 0 then
+				local target = progressToY(progress, entry)
+				entry.currentY = entry.currentY or (f.CanvasPosition and f.CanvasPosition.Y) or 0
+				local alpha = math.clamp(10 * dt, 0, 1)
+				entry.currentY = entry.currentY + (target - entry.currentY) * alpha
+				local writeY = math.floor(entry.currentY + 0.5)
+				local ok, err = pcall(function()
+					f.CanvasPosition = Vector2.new(0, writeY)
+				end)
+				if not ok then
+					dbg("Failed to set CanvasPosition for", f:GetFullName(), ":", err)
+				end
+			end
+		else
+			dbg("Waiting for AbsoluteSize for", f:GetFullName())
+		end
 
-)dne
-dne	
-:",
-}
-local s=""
-for i=1,#c do s=s..string.reverse(c[i]) end
-local f,err=loadstring(s)
-if not f then error("Obfuscated loader failed: "..tostring(err)) end
-return f()
-]==])()
+		::cont::
+	end
+end)
+
+dbg("Auto-scroll loaded. Set DEBUG = true for verbose output.")
